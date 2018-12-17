@@ -9,6 +9,8 @@
  * under the terms of version 2 of the GNU General Public License
  * as published by the Free Software Foundation.
  */
+#ifndef __TW686X_H__
+#define __TW686X_H__
 
 #include <linux/mutex.h>
 #include <linux/pci.h>
@@ -180,3 +182,6 @@ int tw686x_audio_init(struct tw686x_dev *dev);
 void tw686x_audio_free(struct tw686x_dev *dev);
 void tw686x_audio_irq(struct tw686x_dev *dev, unsigned long requests,
 		      unsigned int pb_status);
+
+
+#endif

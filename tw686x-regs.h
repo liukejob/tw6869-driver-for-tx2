@@ -1,3 +1,6 @@
+#ifndef __TW686X_REGS_H__
+#define __TW686X_REGS_H__
+
 /* DMA controller registers */
 #define REG8_1(a0) ((const u16[8]) { a0, a0 + 1, a0 + 2, a0 + 3, \
 				     a0 + 4, a0 + 5, a0 + 6, a0 + 7})
@@ -129,3 +132,4 @@
 #define TW686X_SG_MODE		0x0
 
 #define TW686X_FIFO_ERROR(x)	(x & ~(0xff))
+#endif

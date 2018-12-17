@@ -1,3 +1,17 @@
-tw686x-objs := tw686x-core.o tw686x-video.o tw686x-audio.o
+ifneq ($(KERNELRELEASE),)
+obj-m := tw686x.o
+tw686x-y := tw686x-core.o tw686x-video.o tw686x-audio.o
 
-obj-$(CONFIG_VIDEO_TW686X) += tw686x.o
+else
+KDIR ?=/home/liuke/work/project/tx2-generic/xingjianchangkong-tuxiangronghe/build/kernel
+
+default:
+	$(MAKE) -C $(KDIR) M=$$PWD
+
+install:
+	$(MAKE) -C $(KDIR) M=$$PWD modules_install
+	depmod -a
+
+clean:
+	$(MAKE) -C $(KDIR) M=$$PWD clean
+endif
