@@ -78,6 +78,7 @@ static void tw686x_buf_done(struct tw686x_video_channel *vc,
 /*
  * We can call this even when alloc_dma failed for the given channel
  */
+#if 0
 static void tw686x_memcpy_dma_free(struct tw686x_video_channel *vc,
 				   unsigned int pb)
 {
@@ -145,7 +146,7 @@ static void tw686x_memcpy_buf_refill(struct tw686x_video_channel *vc,
 	}
 	vc->curr_bufs[pb] = NULL;
 }
-#if 0
+
 static const struct tw686x_dma_ops memcpy_dma_ops = {
 	.alloc		= tw686x_memcpy_dma_alloc,
 	.free		= tw686x_memcpy_dma_free,
@@ -186,6 +187,7 @@ static const struct tw686x_dma_ops contig_dma_ops = {
 	.field		= V4L2_FIELD_INTERLACED,
 };
 
+#if 0
 static int tw686x_sg_desc_fill(struct tw686x_sg_desc *descs,
 			       struct tw686x_v4l2_buf *buf,
 			       unsigned int buf_len)
@@ -225,7 +227,6 @@ static int tw686x_sg_desc_fill(struct tw686x_sg_desc *descs,
 
 	return -ENOMEM;
 }
-
 static void tw686x_sg_buf_refill(struct tw686x_video_channel *vc,
 				 unsigned int pb)
 {
@@ -332,7 +333,6 @@ static int tw686x_sg_setup(struct tw686x_dev *dev)
 	return 0;
 }
 
-#if 0
 static const struct tw686x_dma_ops sg_dma_ops = {
 	.setup		= tw686x_sg_setup,
 	.alloc		= tw686x_sg_dma_alloc,
@@ -1331,6 +1331,7 @@ int tw686x_video_init(struct tw686x_dev *dev)
 		reg_write(dev, LOOP[1], 0xa5);
 		reg_write(dev, MISC2[1], 0xe7);
 	}
+	DBG_LOG("init over\n");
 	return 0;
 
 error:
