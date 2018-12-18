@@ -57,7 +57,7 @@ static u32 dma_interval = 0x00098968;
 module_param(dma_interval, int, 0444);
 MODULE_PARM_DESC(dma_interval, "Minimum time span for DMA interrupting host");
 
-static unsigned int dma_mode = TW686X_DMA_MODE_MEMCPY;
+static unsigned int dma_mode = TW686X_DMA_MODE_CONTIG;
 static const char *dma_mode_name(unsigned int mode)
 {
 	switch (mode) {
