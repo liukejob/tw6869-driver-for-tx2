@@ -147,6 +147,7 @@ struct tw686x_dev {
 	struct timer_list dma_delay_timer;
 	u32 pending_dma_en; /* must be protected by lock */
 	u32 pending_dma_cmd; /* must be protected by lock */
+	struct vb2_alloc_ctx *alloc_ctx;
 };
 
 static inline uint32_t reg_read(struct tw686x_dev *dev, unsigned int reg)

@@ -1215,6 +1215,9 @@ int tw686x_video_init(struct tw686x_dev *dev)
 			return err;
 	}
 
+	DBG_LOG("start get channel\n");
+
+
 	/* Initialize vc->dev and vc->ch for the error path */
 	for (ch = 0; ch < max_channels(dev); ch++) {
 		struct tw686x_video_channel *vc = &dev->video_channels[ch];
@@ -1223,9 +1226,13 @@ int tw686x_video_init(struct tw686x_dev *dev)
 		vc->ch = ch;
 	}
 
+	DBG_LOG("setup channel\n");
+
 	for (ch = 0; ch < max_channels(dev); ch++) {
 		struct tw686x_video_channel *vc = &dev->video_channels[ch];
 		struct video_device *vdev;
+
+		DBG_LOG("start set ch %d\n",ch);
 
 		mutex_init(&vc->vb_mutex);
 		spin_lock_init(&vc->qlock);
@@ -1318,14 +1325,21 @@ int tw686x_video_init(struct tw686x_dev *dev)
 		vc->num = vdev->num;
 	}
 
+	DBG_LOG("all channel is set\n");
+
 	val = TW686X_DEF_PHASE_REF;
 	for (ch = 0; ch < max_channels(dev); ch++)
 		val |= dev->dma_ops->hw_dma_mode << (16 + ch * 2);
+
+	DBG_LOG("set all dma mode\n");
+
 	reg_write(dev, PHASE_REF, val);
 
 	reg_write(dev, MISC2[0], 0xe7);
 	reg_write(dev, VCTRL1[0], 0xcc);
 	reg_write(dev, LOOP[0], 0xa5);
+
+	DBG_LOG("set max > 4 channel\n");
 	if (max_channels(dev) > 4) {
 		reg_write(dev, VCTRL1[1], 0xcc);
 		reg_write(dev, LOOP[1], 0xa5);

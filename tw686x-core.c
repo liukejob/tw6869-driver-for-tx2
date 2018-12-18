@@ -246,6 +246,7 @@ static int tw686x_probe(struct pci_dev *pci_dev,
 	struct tw686x_dev *dev;
 	int err;
 
+	DBG_LOG("start probe\n");
 	dev = kzalloc(sizeof(*dev), GFP_KERNEL);
 	if (!dev)
 		return -ENOMEM;
@@ -299,6 +300,7 @@ static int tw686x_probe(struct pci_dev *pci_dev,
 		goto free_region;
 	}
 
+	DBG_LOG("start reset\n");
 	/* Reset all subsystems */
 	reg_write(dev, SYS_SOFT_RST, 0x0f);
 	mdelay(1);
@@ -318,6 +320,8 @@ static int tw686x_probe(struct pci_dev *pci_dev,
 
 	spin_lock_init(&dev->lock);
 
+	DBG_LOG("request irq %d\n",pci_dev->irq);
+
 	err = request_irq(pci_dev->irq, tw686x_irq, IRQF_SHARED,
 			  dev->name, dev);
 	if (err < 0) {
@@ -334,17 +338,24 @@ static int tw686x_probe(struct pci_dev *pci_dev,
 	 * held is released.
 	 */
 	dev->v4l2_dev.release = tw686x_dev_release;
+
+
+	DBG_LOG("start video init\n");
 	err = tw686x_video_init(dev);
 	if (err) {
 		dev_err(&pci_dev->dev, "can't register video\n");
 		goto free_irq;
 	}
-
+#if 0
+	DBG_LOG("start audio init\n");
 	err = tw686x_audio_init(dev);
 	if (err)
 		dev_warn(&pci_dev->dev, "can't register audio\n");
+#endif
 
 	pci_set_drvdata(pci_dev, dev);
+
+	DBG_LOG("probe over ...\n");
 	return 0;
 
 free_irq:
