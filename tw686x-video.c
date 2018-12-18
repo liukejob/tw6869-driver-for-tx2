@@ -68,7 +68,7 @@ static void tw686x_buf_done(struct tw686x_video_channel *vc,
 		if (dev->dma_mode == TW686X_DMA_MODE_MEMCPY)
 			memcpy(vb2_plane_vaddr(vb2_buf, 0), desc->virt,
 			       desc->size);
-		vb2_buf->timestamp = ktime_get_ns();
+		v4l2_get_timestamp(&vb->timestamp);
 		vb2_buffer_done(vb2_buf, VB2_BUF_STATE_DONE);
 	}
 
@@ -145,7 +145,7 @@ static void tw686x_memcpy_buf_refill(struct tw686x_video_channel *vc,
 	}
 	vc->curr_bufs[pb] = NULL;
 }
-
+#if 0
 static const struct tw686x_dma_ops memcpy_dma_ops = {
 	.alloc		= tw686x_memcpy_dma_alloc,
 	.free		= tw686x_memcpy_dma_free,
@@ -154,6 +154,7 @@ static const struct tw686x_dma_ops memcpy_dma_ops = {
 	.hw_dma_mode	= TW686X_FRAME_MODE,
 	.field		= V4L2_FIELD_INTERLACED,
 };
+#endif
 
 static void tw686x_contig_buf_refill(struct tw686x_video_channel *vc,
 				     unsigned int pb)
@@ -331,6 +332,7 @@ static int tw686x_sg_setup(struct tw686x_dev *dev)
 	return 0;
 }
 
+#if 0
 static const struct tw686x_dma_ops sg_dma_ops = {
 	.setup		= tw686x_sg_setup,
 	.alloc		= tw686x_sg_dma_alloc,
@@ -340,6 +342,7 @@ static const struct tw686x_dma_ops sg_dma_ops = {
 	.hw_dma_mode	= TW686X_SG_MODE,
 	.field		= V4L2_FIELD_SEQ_TB,
 };
+#endif
 
 static const unsigned int fps_map[15] = {
 	/*
@@ -423,13 +426,18 @@ static const struct tw686x_format *format_by_fourcc(unsigned int fourcc)
 	return NULL;
 }
 
-static int tw686x_queue_setup(struct vb2_queue *vq,
+static int tw686x_queue_setup(struct vb2_queue *vq, const void *parg,
 			      unsigned int *nbuffers, unsigned int *nplanes,
-			      unsigned int sizes[], struct device *alloc_devs[])
+			      unsigned int sizes[], void *alloc_ctxs[])
 {
+#if 1
 	struct tw686x_video_channel *vc = vb2_get_drv_priv(vq);
+        const struct v4l2_format *fmt = parg;
 	unsigned int szimage =
 		(vc->width * vc->height * vc->format->depth) >> 3;
+
+        if (fmt && fmt->fmt.pix.sizeimage < szimage)
+                return -EINVAL;
 
 	/*
 	 * Let's request at least three buffers: two for the
@@ -444,9 +452,24 @@ static int tw686x_queue_setup(struct vb2_queue *vq,
 		return 0;
 	}
 
-	sizes[0] = szimage;
+        sizes[0] = fmt ? fmt->fmt.pix.sizeimage : szimage;
 	*nplanes = 1;
 	return 0;
+#else
+	struct tw686x_video_channel *vch = vb2_get_drv_priv(vq);
+        const struct v4l2_format *fmt = parg;
+
+        if (vq->num_buffers + *nbuffers < TW_VBUF_ALLOC)
+                *nbuffers = TW_VBUF_ALLOC - vq->num_buffers;
+
+        if (fmt && fmt->fmt.pix.sizeimage < vch->format.sizeimage)
+                return -EINVAL;
+
+        *nplanes = 1;
+        sizes[0] = fmt ? fmt->fmt.pix.sizeimage : vch->format.sizeimage;
+        alloc_ctxs[0] = vch->dma.dev->alloc_ctx;
+        return 0;
+#endif
 }
 
 static void tw686x_buf_queue(struct vb2_buffer *vb)
@@ -1170,7 +1193,7 @@ int tw686x_video_init(struct tw686x_dev *dev)
 {
 	unsigned int ch, val;
 	int err;
-
+#if 0
 	if (dev->dma_mode == TW686X_DMA_MODE_MEMCPY)
 		dev->dma_ops = &memcpy_dma_ops;
 	else if (dev->dma_mode == TW686X_DMA_MODE_CONTIG)
@@ -1179,6 +1202,8 @@ int tw686x_video_init(struct tw686x_dev *dev)
 		dev->dma_ops = &sg_dma_ops;
 	else
 		return -EINVAL;
+#endif
+	dev->dma_ops = &contig_dma_ops;
 
 	err = v4l2_device_register(&dev->pci_dev->dev, &dev->v4l2_dev);
 	if (err)
@@ -1235,7 +1260,7 @@ int tw686x_video_init(struct tw686x_dev *dev)
 		vc->vidq.lock = &vc->vb_mutex;
 		vc->vidq.gfp_flags = dev->dma_mode != TW686X_DMA_MODE_MEMCPY ?
 				     GFP_DMA32 : 0;
-		vc->vidq.dev = &dev->pci_dev->dev;
+		//vc->vidq.dev = &dev->pci_dev->dev;
 
 		err = vb2_queue_init(&vc->vidq);
 		if (err) {
