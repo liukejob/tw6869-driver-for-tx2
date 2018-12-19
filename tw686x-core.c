@@ -57,7 +57,7 @@ static u32 dma_interval = 0x00098968;
 module_param(dma_interval, int, 0444);
 MODULE_PARM_DESC(dma_interval, "Minimum time span for DMA interrupting host");
 
-static unsigned int dma_mode = TW686X_DMA_MODE_CONTIG;
+static unsigned int dma_mode = TW686X_DMA_MODE_SG;
 static const char *dma_mode_name(unsigned int mode)
 {
 	switch (mode) {
@@ -253,6 +253,9 @@ static int tw686x_probe(struct pci_dev *pci_dev,
 	dev->type = pci_id->driver_data;
 	dev->dma_mode = dma_mode;
 	sprintf(dev->name, "tw%04X", pci_dev->device);
+
+
+	DBG_LOG("alloc channel num %d\n",max_channels(dev));
 
 	dev->video_channels = kcalloc(max_channels(dev),
 		sizeof(*dev->video_channels), GFP_KERNEL);
