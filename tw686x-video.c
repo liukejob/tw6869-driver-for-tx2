@@ -75,87 +75,6 @@ static void tw686x_buf_done(struct tw686x_video_channel *vc,
 	vc->pb = !pb;
 }
 
-/*
- * We can call this even when alloc_dma failed for the given channel
- */
-#if 0
-static void tw686x_memcpy_dma_free(struct tw686x_video_channel *vc,
-				   unsigned int pb)
-{
-	struct tw686x_dma_desc *desc = &vc->dma_descs[pb];
-	struct tw686x_dev *dev = vc->dev;
-	struct pci_dev *pci_dev;
-	unsigned long flags;
-
-	/* Check device presence. Shouldn't really happen! */
-	spin_lock_irqsave(&dev->lock, flags);
-	pci_dev = dev->pci_dev;
-	spin_unlock_irqrestore(&dev->lock, flags);
-	if (!pci_dev) {
-		WARN(1, "trying to deallocate on missing device\n");
-		return;
-	}
-
-	if (desc->virt) {
-		pci_free_consistent(dev->pci_dev, desc->size,
-				    desc->virt, desc->phys);
-		desc->virt = NULL;
-	}
-}
-
-static int tw686x_memcpy_dma_alloc(struct tw686x_video_channel *vc,
-				   unsigned int pb)
-{
-	struct tw686x_dev *dev = vc->dev;
-	u32 reg = pb ? VDMA_B_ADDR[vc->ch] : VDMA_P_ADDR[vc->ch];
-	unsigned int len;
-	void *virt;
-
-	WARN(vc->dma_descs[pb].virt,
-	     "Allocating buffer but previous still here\n");
-
-	len = (vc->width * vc->height * vc->format->depth) >> 3;
-	virt = pci_alloc_consistent(dev->pci_dev, len,
-				    &vc->dma_descs[pb].phys);
-	if (!virt) {
-		v4l2_err(&dev->v4l2_dev,
-			 "dma%d: unable to allocate %s-buffer\n",
-			 vc->ch, pb ? "B" : "P");
-		return -ENOMEM;
-	}
-	vc->dma_descs[pb].size = len;
-	vc->dma_descs[pb].virt = virt;
-	reg_write(dev, reg, vc->dma_descs[pb].phys);
-
-	return 0;
-}
-
-static void tw686x_memcpy_buf_refill(struct tw686x_video_channel *vc,
-				     unsigned int pb)
-{
-	struct tw686x_v4l2_buf *buf;
-
-	while (!list_empty(&vc->vidq_queued)) {
-
-		buf = list_first_entry(&vc->vidq_queued,
-			struct tw686x_v4l2_buf, list);
-		list_del(&buf->list);
-
-		vc->curr_bufs[pb] = buf;
-		return;
-	}
-	vc->curr_bufs[pb] = NULL;
-}
-
-static const struct tw686x_dma_ops memcpy_dma_ops = {
-	.alloc		= tw686x_memcpy_dma_alloc,
-	.free		= tw686x_memcpy_dma_free,
-	.buf_refill	= tw686x_memcpy_buf_refill,
-	.mem_ops	= &vb2_vmalloc_memops,
-	.hw_dma_mode	= TW686X_FRAME_MODE,
-	.field		= V4L2_FIELD_INTERLACED,
-};
-#endif
 
 static void tw686x_contig_buf_refill(struct tw686x_video_channel *vc,
 				     unsigned int pb)
@@ -187,7 +106,6 @@ static const struct tw686x_dma_ops contig_dma_ops = {
 	.field		= V4L2_FIELD_INTERLACED,
 };
 
-#if 1
 static int tw686x_sg_desc_fill(struct tw686x_sg_desc *descs,
 			       struct tw686x_v4l2_buf *buf,
 			       unsigned int buf_len)
@@ -349,7 +267,6 @@ static const struct tw686x_dma_ops sg_dma_ops = {
 	.hw_dma_mode	= TW686X_SG_MODE,
 	.field		= V4L2_FIELD_SEQ_TB,
 };
-#endif
 
 static const unsigned int fps_map[15] = {
 	/*
@@ -437,7 +354,6 @@ static int tw686x_queue_setup(struct vb2_queue *vq, const void *parg,
 			      unsigned int *nbuffers, unsigned int *nplanes,
 			      unsigned int sizes[], void *alloc_ctxs[])
 {
-#if 1
 	struct tw686x_video_channel *vc = vb2_get_drv_priv(vq);
         const struct v4l2_format *fmt = parg;
 	unsigned int szimage =
@@ -463,21 +379,7 @@ static int tw686x_queue_setup(struct vb2_queue *vq, const void *parg,
 	*nplanes = 1;
         alloc_ctxs[0] = vc->dev->alloc_ctx;
 	return 0;
-#else
-	struct tw686x_video_channel *vch = vb2_get_drv_priv(vq);
-        const struct v4l2_format *fmt = parg;
 
-        if (vq->num_buffers + *nbuffers < TW_VBUF_ALLOC)
-                *nbuffers = TW_VBUF_ALLOC - vq->num_buffers;
-
-        if (fmt && fmt->fmt.pix.sizeimage < vch->format.sizeimage)
-                return -EINVAL;
-
-        *nplanes = 1;
-        sizes[0] = fmt ? fmt->fmt.pix.sizeimage : vch->format.sizeimage;
-        alloc_ctxs[0] = vch->dma.dev->alloc_ctx;
-        return 0;
-#endif
 }
 
 static void tw686x_buf_queue(struct vb2_buffer *vb)
@@ -715,22 +617,17 @@ static int tw686x_set_format(struct tw686x_video_channel *vc,
 	vc->width = width;
 	vc->height = height;
 
-	DBG_LOG("start set format\n");
 
 	/* We need new DMA buffers if the framesize has changed */
 	if (dev->dma_ops->alloc && realloc) {
 		for (pb = 0; pb < 2; pb++)
 			dev->dma_ops->free(vc, pb);
 
-		DBG_LOG("dam free\n");
 
 		for (pb = 0; pb < 2; pb++) {
-			DBG_LOG("dma alloc %d\n",pb);
 			err = dev->dma_ops->alloc(vc, pb);
 			if (err) {
-				DBG_LOG("dma alloc error\n");
 				if (pb > 0){
-					DBG_LOG("dma free\n");
 					dev->dma_ops->free(vc, 0);
 				}
 				return err;
@@ -738,7 +635,6 @@ static int tw686x_set_format(struct tw686x_video_channel *vc,
 		}
 	}
 
-	DBG_LOG("dma ops over\n");
 	val = reg_read(vc->dev, VDMA_CHANNEL_CONFIG[vc->ch]);
 
 	if (vc->width <= TW686X_VIDEO_WIDTH / 2)
@@ -765,7 +661,6 @@ static int tw686x_set_format(struct tw686x_video_channel *vc,
 		val |= (end_idx << 10) | start_idx;
 	}
 
-	DBG_LOG("mode ok\n");
 
 	val &= ~(0x7 << 20);
 	val |= vc->format->mode << 20;
@@ -777,7 +672,6 @@ static int tw686x_set_format(struct tw686x_video_channel *vc,
 	dma_line_width = (vc->width * 2) & 0x7ff;
 	val = (dma_height << 22) | (dma_line_width << 11)  | dma_width;
 	reg_write(vc->dev, VDMA_WHP[vc->ch], val);
-	DBG_LOG("set format over\n");
 	return 0;
 }
 
@@ -1209,7 +1103,14 @@ void tw686x_video_free(struct tw686x_dev *dev)
 			for (pb = 0; pb < 2; pb++)
 				dev->dma_ops->free(vc, pb);
 	}
-        vb2_dma_sg_cleanup_ctx(dev->alloc_ctx);
+	if (dev->dma_mode == TW686X_DMA_MODE_CONTIG){
+		vb2_dma_sg_cleanup_ctx(dev->alloc_ctx);
+	}else if (dev->dma_mode == TW686X_DMA_MODE_SG){
+		vb2_dma_contig_cleanup_ctx(dev->alloc_ctx);
+	}else{
+		;
+	}
+
         dev->alloc_ctx = NULL;
 }
 
@@ -1217,24 +1118,26 @@ int tw686x_video_init(struct tw686x_dev *dev)
 {
 	unsigned int ch, val;
 	int err;
-#if 0
-	if (dev->dma_mode == TW686X_DMA_MODE_MEMCPY)
-		dev->dma_ops = &memcpy_dma_ops;
-	else if (dev->dma_mode == TW686X_DMA_MODE_CONTIG)
+	if (dev->dma_mode == TW686X_DMA_MODE_CONTIG){
 		dev->dma_ops = &contig_dma_ops;
-	else if (dev->dma_mode == TW686X_DMA_MODE_SG)
+	}else if (dev->dma_mode == TW686X_DMA_MODE_SG){
 		dev->dma_ops = &sg_dma_ops;
-	else
+	}else{
 		return -EINVAL;
-#endif
-	//dev->dma_ops = &contig_dma_ops;
-	dev->dma_ops = &sg_dma_ops;
+	}
 
 	err = v4l2_device_register(&dev->pci_dev->dev, &dev->v4l2_dev);
 	if (err)
 		return err;
+	
+	if (dev->dma_mode == TW686X_DMA_MODE_CONTIG){
+		dev->alloc_ctx = vb2_dma_contig_init_ctx(&dev->pci_dev->dev);
+	}else if (dev->dma_mode == TW686X_DMA_MODE_SG){
+		dev->alloc_ctx = vb2_dma_sg_init_ctx(&dev->pci_dev->dev);
+	}else{
+		return -EINVAL;
+	}
 
-        dev->alloc_ctx = vb2_dma_sg_init_ctx(&dev->pci_dev->dev);
         if (IS_ERR(dev->alloc_ctx)) {
                 err = PTR_ERR(dev->alloc_ctx);
                 DBG_LOG("can't allocate buffer context\n");
@@ -1249,8 +1152,6 @@ int tw686x_video_init(struct tw686x_dev *dev)
 		if (err)
 			return err;
 	}
-
-	DBG_LOG("start get channel\n");
 
 
 	/* Initialize vc->dev and vc->ch for the error path */
