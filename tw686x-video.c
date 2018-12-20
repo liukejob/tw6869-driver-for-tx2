@@ -184,7 +184,7 @@ static void tw686x_sg_dma_free(struct tw686x_video_channel *vc,
 	DBG_LOG("start free\n");
 
 	if (desc->size) {
-		DBG_LOG("%p, dsec->size = %d, %p, %ld\n",dev->pci_dev,desc->size,desc->virt,(long)desc->phys);
+		DBG_LOG("%p, dsec->size = %d, virt=%p, phy=%ld\n",dev->pci_dev,desc->size,desc->virt,(long)desc->phys);
 		if(desc->virt){
 			pci_free_consistent(dev->pci_dev, desc->size,
 					    desc->virt, desc->phys);
@@ -204,11 +204,13 @@ static int tw686x_sg_dma_alloc(struct tw686x_video_channel *vc,
 		       DMA_PAGE_TABLE0_ADDR[vc->ch];
 	void *virt;
 
+	DBG_LOG("start alloc\n");
+
 	if (desc->size) {
-		DBG_LOG("start alloc desc->size %d\n",desc->size);
 
 		virt = pci_alloc_consistent(dev->pci_dev, desc->size,
 					    &desc->phys);
+		DBG_LOG("start alloc desc->size %d, virt = %p, phy=%ld\n",desc->size,virt,(long)desc->phys);
 		if (!virt) {
 			v4l2_err(&dev->v4l2_dev,
 				 "dma%d: unable to allocate %s-buffer\n",
@@ -230,7 +232,6 @@ static int tw686x_sg_setup(struct tw686x_dev *dev)
 {
 	unsigned int sg_table_size, pb, ch, channels;
 
-	DBG_LOG("start setup\n");
 	if (is_second_gen(dev)) {
 		/*
 		 * TW6865/TW6869: each channel needs a pair of
@@ -652,7 +653,6 @@ static int tw686x_set_format(struct tw686x_video_channel *vc,
 	/* Program the DMA scatter-gather */
 	if (dev->dma_mode == TW686X_DMA_MODE_SG) {
 		u32 start_idx, end_idx;
-		DBG_LOG("sg mode set\n");
 
 		start_idx = is_second_gen(dev) ?
 				0 : vc->ch * TW686X_MAX_SG_DESC_COUNT;
@@ -1140,7 +1140,6 @@ int tw686x_video_init(struct tw686x_dev *dev)
 
         if (IS_ERR(dev->alloc_ctx)) {
                 err = PTR_ERR(dev->alloc_ctx);
-                DBG_LOG("can't allocate buffer context\n");
                 v4l2_device_unregister(&dev->v4l2_dev);
                 dev->alloc_ctx = NULL;
                 return err;
@@ -1162,41 +1161,34 @@ int tw686x_video_init(struct tw686x_dev *dev)
 		vc->ch = ch;
 	}
 
-	DBG_LOG("setup channel\n");
 
 	for (ch = 0; ch < max_channels(dev); ch++) {
 		struct tw686x_video_channel *vc = &dev->video_channels[ch];
 		struct video_device *vdev;
 
-		DBG_LOG("start set ch %d\n",ch);
 
 		mutex_init(&vc->vb_mutex);
 		spin_lock_init(&vc->qlock);
 		INIT_LIST_HEAD(&vc->vidq_queued);
 
-		DBG_LOG("init ok\n");
 
 		/* default settings */
 		err = tw686x_set_standard(vc, V4L2_STD_PAL);
 		if (err)
 			goto error;
 
-		DBG_LOG("standard ok\n");
 
 		err = tw686x_set_format(vc, formats[0].fourcc,
 				TW686X_VIDEO_WIDTH,
 				TW686X_VIDEO_HEIGHT(vc->video_standard),
 				true);
 
-		DBG_LOG("set format ok\n");
 		if (err)
 			goto error;
 
 		tw686x_set_input(vc, 0);
-		DBG_LOG("set input ok\n");
 
 		tw686x_set_framerate(vc, 30);
-		DBG_LOG("set framerate ok\n");
 
 		reg_write(dev, VDELAY_LO[ch], 0x14);
 		reg_write(dev, HACTIVE_LO[ch], 0xd0);
@@ -1218,7 +1210,6 @@ int tw686x_video_init(struct tw686x_dev *dev)
 		//vc->vidq.dev = &dev->pci_dev->dev;
 
 
-		DBG_LOG("start queue init q: %p\n",&vc->vidq);
 		err = vb2_queue_init(&vc->vidq);
 		if (err) {
 			v4l2_err(&dev->v4l2_dev,
@@ -1269,22 +1260,18 @@ int tw686x_video_init(struct tw686x_dev *dev)
 		vc->device = vdev;
 		video_set_drvdata(vdev, vc);
 
-		DBG_LOG("start video register\n");
 		err = video_register_device(vdev, VFL_TYPE_GRABBER, -1);
 		if (err < 0)
 			goto error;
 		vc->num = vdev->num;
 
-		DBG_LOG("end video register\n");
 	}
 
-	DBG_LOG("all channel is set\n");
 
 	val = TW686X_DEF_PHASE_REF;
 	for (ch = 0; ch < max_channels(dev); ch++)
 		val |= dev->dma_ops->hw_dma_mode << (16 + ch * 2);
 
-	DBG_LOG("set all dma mode\n");
 
 	reg_write(dev, PHASE_REF, val);
 
@@ -1292,13 +1279,11 @@ int tw686x_video_init(struct tw686x_dev *dev)
 	reg_write(dev, VCTRL1[0], 0xcc);
 	reg_write(dev, LOOP[0], 0xa5);
 
-	DBG_LOG("set max > 4 channel\n");
 	if (max_channels(dev) > 4) {
 		reg_write(dev, VCTRL1[1], 0xcc);
 		reg_write(dev, LOOP[1], 0xa5);
 		reg_write(dev, MISC2[1], 0xe7);
 	}
-	DBG_LOG("init over\n");
 	return 0;
 
 error:
