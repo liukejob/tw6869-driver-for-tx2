@@ -23,7 +23,8 @@
 #include <media/videobuf2-v4l2.h>
 #include <sound/pcm.h>
 
-#define DBG_LOG(fmt,args...) pr_info("%s,%s,%d->"fmt"",__FILE__,__func__,__LINE__,##args)
+//#define DBG_LOG(fmt,args...) pr_info("%s,%s,%d->"fmt"",__FILE__,__func__,__LINE__,##args)
+#define DBG_LOG(fmt,args...) 
 
 #include "tw686x-regs.h"
 
