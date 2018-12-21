@@ -23,6 +23,13 @@
 #include <media/videobuf2-v4l2.h>
 #include <sound/pcm.h>
 
+
+#define RADDR(idx)                 ((idx) * 0x1)
+#define ID2CH(id)                  ((id) & 0x7)
+#define ID2SC(id)                  ((id) & 0x3)
+#define GROUP(id)                  (((id) & 0x4) * 0x40)
+#define R8_VERTICAL_DELAY(id)      RADDR(0x108 + GROUP(id) + ID2SC(id) * 0x10)
+
 //#define DBG_LOG(fmt,args...) pr_info("%s,%s,%d->"fmt"",__FILE__,__func__,__LINE__,##args)
 #define DBG_LOG(fmt,args...) 
 

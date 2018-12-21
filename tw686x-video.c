@@ -613,6 +613,7 @@ static int tw686x_set_format(struct tw686x_video_channel *vc,
 	struct tw686x_dev *dev = vc->dev;
 	u32 val, dma_width, dma_height, dma_line_width;
 	int err, pb;
+	int cfg;
 
 	vc->format = format_by_fourcc(pixelformat);
 	vc->width = width;
@@ -672,6 +673,25 @@ static int tw686x_set_format(struct tw686x_video_channel *vc,
 	dma_line_width = (vc->width * 2) & 0x7ff;
 	val = (dma_height << 22) | (dma_line_width << 11)  | dma_width;
 	reg_write(vc->dev, VDMA_WHP[vc->ch], val);
+
+
+        cfg = 13 + (vc->ch & 0x7);
+	DBG_LOG("vc->ch = %d\n, cfg = %d",vc->ch,cfg);
+        if (vc->video_standard & V4L2_STD_625_50) {
+		DBG_LOG("625_50 mode\n");
+		val = reg_read(vc->dev, VIDEO_CONTROL1);
+		val |= BIT(cfg);
+                reg_write(vc->dev, VIDEO_CONTROL1, val);
+                reg_write(vc->dev, R8_VERTICAL_DELAY(vc->ch), 0x18);
+        } else {
+		DBG_LOG("not 625_50 mode\n");
+		val = reg_read(vc->dev, VIDEO_CONTROL1);
+		val |= BIT(cfg);
+                reg_write(vc->dev, VIDEO_CONTROL1, val);
+                reg_write(vc->dev, R8_VERTICAL_DELAY(vc->ch), 0x14);
+        }
+
+
 	return 0;
 }
 
