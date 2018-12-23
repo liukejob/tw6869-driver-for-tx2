@@ -1224,8 +1224,8 @@ int tw686x_video_init(struct tw686x_dev *dev)
 		vc->vidq.min_buffers_needed = 2;
 		vc->vidq.lock = &vc->vb_mutex;
 
-		//vc->vidq.gfp_flags = dev->dma_mode != TW686X_DMA_MODE_MEMCPY ? GFP_DMA32 : 0;
-		vc->vidq.gfp_flags = GFP_DMA;
+		vc->vidq.gfp_flags = dev->dma_mode != TW686X_DMA_MODE_MEMCPY ? GFP_DMA32 : 0;
+		//vc->vidq.gfp_flags = GFP_DMA;
 
 		//vc->vidq.dev = &dev->pci_dev->dev;
 
